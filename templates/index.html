@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Puissance 4</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            margin-top: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+        }
+
+        table {
+            border-collapse: collapse;
+            margin: 20px auto;
+            background: #004080;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        td {
+            width: 70px;
+            height: 70px;
+            border: 3px solid #003060;
+            text-align: center;
+            background: #87ceeb;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .p1, .p2, .empty {
+            width: 60px;
+            height: 60px;
+            margin: auto;
+            border-radius: 50%;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .p1 {
+            background: radial-gradient(circle, #ff4d4d, #b30000);
+        }
+
+        .p2 {
+            background: radial-gradient(circle, #ffff66, #b3b300);
+        }
+
+        .empty {
+            background: white;
+        }
+
+        .p1:hover, .p2:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(255,255,255,0.8);
+        }
+
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+        }
+
+        .col-btn {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .col-btn:hover {
+            background: #ddd;
+        }
+
+        .reset-btn {
+            background: #ff6666;
+            color: white;
+        }
+
+        .reset-btn:hover {
+            background: #cc0000;
+        }
+
+        h2 {
+            margin-top: 10px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Puissance 4</h1>
+
+    <table>
+        {{range $i, $row := .Board}}
+        <tr>
+            {{range $j, $cell := $row}}
+            <td>
+                {{if eq $cell 1}} <div class="p1"></div>
+                {{else if eq $cell 2}} <div class="p2"></div>
+                {{else}} <div class="empty"></div>
+                {{end}}
+            </td>
+            {{end}}
+        </tr>
+        {{end}}
+    </table>
+
+    <div class="controls">
+        {{if .GameOver}}
+            <h2>{{.Message}}</h2>
+            <form method="get" action="/reset">
+                <button type="submit" class="reset-btn">🔄 Rejouer</button>
+            </form>
+        {{else}}
+            <h2>👉 Tour du joueur {{.Current}}</h2>
+            <form method="post" action="/play">
+                <button type="submit" class="col-btn" name="column" value="0">Col 0</button>
+                <button type="submit" class="col-btn" name="column" value="1">Col 1</button>
+                <button type="submit" class="col-btn" name="column" value="2">Col 2</button>
+                <button type="submit" class="col-btn" name="column" value="3">Col 3</button>
+                <button type="submit" class="col-btn" name="column" value="4">Col 4</button>
+                <button type="submit" class="col-btn" name="column" value="5">Col 5</button>
+                <button type="submit" class="col-btn" name="column" value="6">Col 6</button>
+            </form>
+        {{end}}
+    </div>
+
+    <script>
+        // Petit effet visuel : fade-in du plateau
+        document.addEventListener("DOMContentLoaded", () => {
+            const table = document.querySelector("table");
+            table.style.opacity = 0;
+            setTimeout(() => {
+                table.style.transition = "opacity 1s";
+                table.style.opacity = 1;
+            }, 100);
+        });
+    </script>
+</body>
+</html>
