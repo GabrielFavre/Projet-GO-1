@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -12,11 +14,12 @@ const (
 )
 
 type Game struct {
-	Board    [rows][columns]int // 0 = vide, 1 = joueur 1, 2 = joueur 2
-	Current  int                // joueur courant
-	Winner   int                // gagnant éventuel
+	Board    [rows][columns]int
+	Current  int
+	Winner   int
 	GameOver bool
 	Message  string
+	BgColor  string
 }
 
 var game Game
@@ -29,16 +32,20 @@ func main() {
 	http.HandleFunc("/play", handlePlay)
 	http.HandleFunc("/reset", handleReset)
 
-	println("Serveur lancé sur http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
+	log.Println("Serveur lancé sur http://localhost:8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func resetGame() {
-	game = Game{Current: 1}
+	game = Game{Current: 1, BgColor: "#ff4d4d"} // commence par le rouge
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
-	tmpl.Execute(w, game)
+	if err := tmpl.Execute(w, game); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func handlePlay(w http.ResponseWriter, r *http.Request) {
@@ -54,22 +61,23 @@ func handlePlay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// placer le pion dans la colonne choisie
 	for row := rows - 1; row >= 0; row-- {
 		if game.Board[row][col] == 0 {
 			game.Board[row][col] = game.Current
 			if checkWin(row, col, game.Current) {
 				game.Winner = game.Current
 				game.GameOver = true
-				game.Message = "Le joueur " + strconv.Itoa(game.Current) + " a gagné !"
+				game.Message = fmt.Sprintf("Le joueur %s a gagné !", playerName(game.Current))
 			} else if checkDraw() {
 				game.GameOver = true
 				game.Message = "Match nul !"
 			} else {
 				if game.Current == 1 {
 					game.Current = 2
+					game.BgColor = "#4da6ff" // fond bleu
 				} else {
 					game.Current = 1
+					game.BgColor = "#ff4d4d" // fond rouge
 				}
 			}
 			break
@@ -80,7 +88,9 @@ func handlePlay(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleReset(w http.ResponseWriter, r *http.Request) {
-	resetGame()
+	if r.Method == http.MethodPost {
+		resetGame()
+	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -95,10 +105,10 @@ func checkDraw() bool {
 
 func checkWin(r, c, player int) bool {
 	directions := [][2]int{
-		{0, 1},  // horizontal
-		{1, 0},  // vertical
-		{1, 1},  // diagonale ↘
-		{1, -1}, // diagonale ↙
+		{0, 1},
+		{1, 0},
+		{1, 1},
+		{1, -1},
 	}
 
 	for _, d := range directions {
@@ -122,4 +132,11 @@ func checkWin(r, c, player int) bool {
 		}
 	}
 	return false
+}
+
+func playerName(player int) string {
+	if player == 1 {
+		return "Rouge"
+	}
+	return "Bleu"
 }

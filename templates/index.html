@@ -6,39 +6,38 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            background: {{.BgColor}};
             color: white;
             text-align: center;
             margin: 0;
             padding: 0;
+            transition: background 0.5s ease;
         }
 
         h1 {
             margin-top: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.7);
         }
 
         table {
             border-collapse: collapse;
             margin: 20px auto;
-            background: #004080;
+            background: #003366;
             padding: 10px;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
 
         td {
             width: 70px;
             height: 70px;
-            border: 3px solid #003060;
+            border: 3px solid #001f4d;
             text-align: center;
             background: #87ceeb;
             border-radius: 8px;
-            position: relative;
-            overflow: hidden;
         }
 
-        .p1, .p2, .empty {
+        .rouge, .bleu, .empty {
             width: 60px;
             height: 60px;
             margin: auto;
@@ -46,25 +45,19 @@
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
-        .p1 {
+        .rouge {
             background: radial-gradient(circle, #ff4d4d, #b30000);
         }
 
-        .p2 {
-            background: radial-gradient(circle, #ffff66, #b3b300);
+        .bleu {
+            background: radial-gradient(circle, #66b3ff, #004080);
         }
 
         .empty {
             background: white;
         }
 
-        .p1:hover, .p2:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 15px rgba(255,255,255,0.8);
-        }
-
         .controls {
-            text-align: center;
             margin-top: 20px;
         }
 
@@ -102,21 +95,21 @@
         }
 
         h2 {
-            margin-top: 10px;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+            margin-top: 15px;
+            text-shadow: 1px 1px 4px rgba(0,0,0,0.6);
         }
     </style>
 </head>
 <body>
-    <h1>🎮 Puissance 4</h1>
+    <h1>Puissance 4</h1>
 
     <table>
         {{range $i, $row := .Board}}
         <tr>
             {{range $j, $cell := $row}}
             <td>
-                {{if eq $cell 1}} <div class="p1"></div>
-                {{else if eq $cell 2}} <div class="p2"></div>
+                {{if eq $cell 1}} <div class="rouge"></div>
+                {{else if eq $cell 2}} <div class="bleu"></div>
                 {{else}} <div class="empty"></div>
                 {{end}}
             </td>
@@ -128,11 +121,11 @@
     <div class="controls">
         {{if .GameOver}}
             <h2>{{.Message}}</h2>
-            <form method="get" action="/reset">
-                <button type="submit" class="reset-btn">🔄 Rejouer</button>
+            <form method="post" action="/reset">
+                <button type="submit" class="reset-btn">Rejouer</button>
             </form>
         {{else}}
-            <h2>👉 Tour du joueur {{.Current}}</h2>
+            <h2>Tour du joueur {{if eq .Current 1}}Rouge{{else}}Bleu{{end}}</h2>
             <form method="post" action="/play">
                 <button type="submit" class="col-btn" name="column" value="0">Col 0</button>
                 <button type="submit" class="col-btn" name="column" value="1">Col 1</button>
@@ -144,17 +137,5 @@
             </form>
         {{end}}
     </div>
-
-    <script>
-        // Petit effet visuel : fade-in du plateau
-        document.addEventListener("DOMContentLoaded", () => {
-            const table = document.querySelector("table");
-            table.style.opacity = 0;
-            setTimeout(() => {
-                table.style.transition = "opacity 1s";
-                table.style.opacity = 1;
-            }, 100);
-        });
-    </script>
 </body>
 </html>
