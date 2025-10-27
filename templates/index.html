@@ -1,141 +1,66 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Puissance 4</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: {{.BgColor}};
-            color: white;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-            transition: background 0.5s ease;
-        }
-
-        h1 {
-            margin-top: 20px;
-            text-shadow: 2px 2px 6px rgba(0,0,0,0.7);
-        }
-
-        table {
-            border-collapse: collapse;
-            margin: 20px auto;
-            background: #003366;
-            padding: 10px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        }
-
-        td {
-            width: 70px;
-            height: 70px;
-            border: 3px solid #001f4d;
-            text-align: center;
-            background: #87ceeb;
-            border-radius: 8px;
-        }
-
-        .rouge, .bleu, .empty {
-            width: 60px;
-            height: 60px;
-            margin: auto;
-            border-radius: 50%;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .rouge {
-            background: radial-gradient(circle, #ff4d4d, #b30000);
-        }
-
-        .bleu {
-            background: radial-gradient(circle, #66b3ff, #004080);
-        }
-
-        .empty {
-            background: white;
-        }
-
-        .controls {
-            margin-top: 20px;
-        }
-
-        button {
-            margin: 5px;
-            padding: 10px 15px;
-            font-size: 16px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.3s ease, transform 0.2s ease;
-        }
-
-        button:hover {
-            transform: translateY(-3px);
-        }
-
-        .col-btn {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .col-btn:hover {
-            background: #ddd;
-        }
-
-        .reset-btn {
-            background: #ff6666;
-            color: white;
-        }
-
-        .reset-btn:hover {
-            background: #cc0000;
-        }
-
-        h2 {
-            margin-top: 15px;
-            text-shadow: 1px 1px 4px rgba(0,0,0,0.6);
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Power4 Web</title>
+<style>
+body { font-family: Arial; background: #f5f5f5; text-align:center; padding:20px; }
+table { margin:auto; border-collapse:collapse; }
+td { width:60px; height:60px; border-radius:8px; background:#ddd; }
+.red { background:red; }
+.blue { background:blue; }
+button { margin:4px; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; }
+input, select { padding:6px; margin:4px; }
+form { margin:10px; }
+</style>
 </head>
 <body>
-    <h1>Puissance 4</h1>
 
-    <table>
-        {{range $i, $row := .Board}}
-        <tr>
-            {{range $j, $cell := $row}}
-            <td>
-                {{if eq $cell 1}} <div class="rouge"></div>
-                {{else if eq $cell 2}} <div class="bleu"></div>
-                {{else}} <div class="empty"></div>
-                {{end}}
-            </td>
-            {{end}}
-        </tr>
-        {{end}}
-    </table>
+{{if .Rows}}
+  <h2>{{index .Players 1}} (rouge) vs {{index .Players 2}} (bleu)</h2>
+  <p><b>Difficulté:</b> {{.Difficulty}} — <b>Tour:</b> {{.TurnCount}}</p>
+  <p><b>Gravité:</b> {{if .Gravity}}Normale{{else}}Inversée{{end}}</p>
+  <p style="color:#333">{{.Message}}</p>
 
-    <div class="controls">
-        {{if .GameOver}}
-            <h2>{{.Message}}</h2>
-            <form method="post" action="/reset">
-                <button type="submit" class="reset-btn">Rejouer</button>
-            </form>
-        {{else}}
-            <h2>Tour du joueur {{if eq .Current 1}}Rouge{{else}}Bleu{{end}}</h2>
-            <form method="post" action="/play">
-                <button type="submit" class="col-btn" name="column" value="0">Col 0</button>
-                <button type="submit" class="col-btn" name="column" value="1">Col 1</button>
-                <button type="submit" class="col-btn" name="column" value="2">Col 2</button>
-                <button type="submit" class="col-btn" name="column" value="3">Col 3</button>
-                <button type="submit" class="col-btn" name="column" value="4">Col 4</button>
-                <button type="submit" class="col-btn" name="column" value="5">Col 5</button>
-                <button type="submit" class="col-btn" name="column" value="6">Col 6</button>
-            </form>
-        {{end}}
-    </div>
+  <table>
+    {{range $r, $row := .Board}}
+      <tr>
+      {{range $c, $v := $row}}
+        <td class="{{if eq $v 1}}red{{else if eq $v 2}}blue{{end}}"></td>
+      {{end}}
+      </tr>
+    {{end}}
+  </table>
+
+  {{if not .GameOver}}
+    <form action="/play" method="post">
+      {{range $i := (slice 0 .Columns)}}
+        <button name="column" value="{{$i}}">↓</button>
+      {{end}}
+    </form>
+  {{else}}
+    <p><b>{{.Message}}</b></p>
+  {{end}}
+
+  <form action="/reset" method="post">
+    <button>Revenir à l'accueil</button>
+  </form>
+
+{{else}}
+  <h1>Power4 Web</h1>
+  <form action="/start" method="post">
+    <p>Joueur 1 (rouge): <input name="player1"></p>
+    <p>Joueur 2 (bleu): <input name="player2"></p>
+    <p>Difficulté :
+      <select name="difficulty">
+        <option value="easy">Facile</option>
+        <option value="normal">Normal</option>
+        <option value="hard">Difficile</option>
+      </select>
+    </p>
+    <button type="submit">Commencer</button>
+  </form>
+{{end}}
+
 </body>
 </html>
