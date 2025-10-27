@@ -1,160 +1,417 @@
 package main
 
 import (
-	"encoding/json"
 	"html/template"
-	"math/rand"
+	"log"
 	"net/http"
-	"time"
+	"strconv"
+	"sync"
 )
 
-type Game struct {
-	Rows       int
-	Cols       int
-	Board      [][]int
-	PlayerTurn int
-	GameOver   bool
-	Winner     int
-}
-
-type TemplateData struct {
-	Game      *Game
-	BoardJSON template.JS
+type GameState struct {
+	Board          [][]int
+	CurrentPlayer  int
+	Player1Name    string
+	Player2Name    string
+	Player1Color   string
+	Player2Color   string
+	Winner         int
+	GameOver       bool
+	Rows           int
+	Cols           int
+	Difficulty     string
+	TurnCount      int
+	GravityInverse bool
+	BlockedCells   map[string]bool
+	FinishHimMode  bool
 }
 
 var (
-	game      *Game
-	tmplIndex = template.Must(template.ParseFiles("templates/index.html"))
-	tmplStart = template.Must(template.ParseFiles("templates/start.html"))
-	tmplLevel = template.Must(template.ParseFiles("templates/level.html"))
-	tmplWin   = template.Must(template.ParseFiles("templates/win.html"))
-	tmplDraw  = template.Must(template.ParseFiles("templates/draw.html"))
+	game      *GameState
+	gameMutex sync.Mutex
+	templates *template.Template
 )
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	http.HandleFunc("/", startHandler)
-	http.HandleFunc("/level", levelHandler)
+	// Initialize templates with custom functions
+	funcMap := template.FuncMap{
+		"iterate": func(count int) []int {
+			var items []int
+			for i := 0; i < count; i++ {
+				items = append(items, i)
+			}
+			return items
+		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"eq": func(a, b int) bool {
+			return a == b
+		},
+	}
+
+	var err error
+	templates, err = template.New("").Funcs(funcMap).ParseGlob("templates/*.html")
+	if err != nil {
+		log.Fatal("Error loading templates:", err)
+	}
+
+	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/start", startGameHandler)
 	http.HandleFunc("/play", playHandler)
-	http.HandleFunc("/move", moveHandler)
 	http.HandleFunc("/rematch", rematchHandler)
-	initGame(6, 7)
-	http.ListenAndServe(":8080", nil)
+
+	log.Println("🎮 Server starting on http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func initGame(rows, cols int) {
-	game = &Game{
-		Rows:       rows,
-		Cols:       cols,
-		PlayerTurn: 1,
-		Board:      make([][]int, rows),
-	}
-	for i := 0; i < rows; i++ {
-		game.Board[i] = make([]int, cols)
-	}
-	game.GameOver = false
-	game.Winner = 0
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	templates.ExecuteTemplate(w, "home.html", nil)
 }
 
-func startHandler(w http.ResponseWriter, r *http.Request) {
-	tmplStart.Execute(w, nil)
-}
-
-func levelHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		level := r.FormValue("level")
-		switch level {
-		case "easy":
-			initGame(6, 7)
-		case "normal":
-			initGame(6, 9)
-		case "hard":
-			initGame(7, 8)
-		default:
-			initGame(6, 7)
-		}
-		http.Redirect(w, r, "/play", http.StatusSeeOther)
+func startGameHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	tmplLevel.Execute(w, nil)
+
+	player1 := r.FormValue("player1")
+	player2 := r.FormValue("player2")
+	difficulty := r.FormValue("difficulty")
+	player1Color := r.FormValue("player1color")
+	player2Color := r.FormValue("player2color")
+
+	if player1 == "" {
+		player1 = "Joueur 1"
+	}
+	if player2 == "" {
+		player2 = "Joueur 2"
+	}
+	if difficulty == "" {
+		difficulty = "normal"
+	}
+	if player1Color == "" {
+		player1Color = "#ef4444"
+	}
+	if player2Color == "" {
+		player2Color = "#fbbf24"
+	}
+
+	gameMutex.Lock()
+	game = initGame(player1, player2, difficulty, player1Color, player2Color)
+	gameMutex.Unlock()
+
+	templates.ExecuteTemplate(w, "game.html", game)
 }
 
 func playHandler(w http.ResponseWriter, r *http.Request) {
-	boardBytes, _ := json.Marshal(game.Board)
-	data := TemplateData{
-		Game:      game,
-		BoardJSON: template.JS(boardBytes),
-	}
-	tmplIndex.Execute(w, data)
-}
-
-func moveHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost || game.GameOver {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	var req struct {
-		Col int `json:"col"`
+
+	colStr := r.FormValue("column")
+	col, err := strconv.Atoi(colStr)
+	if err != nil || col < 0 || col >= game.Cols {
+		templates.ExecuteTemplate(w, "game.html", game)
+		return
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-	placeToken(req.Col)
-	checkGameOver()
-	json.NewEncoder(w).Encode(game)
+
+	gameMutex.Lock()
+	defer gameMutex.Unlock()
+
+	if game.GameOver {
+		templates.ExecuteTemplate(w, "game.html", game)
+		return
+	}
+
+	// Place the piece
+	row := placePiece(col)
+	if row == -1 {
+		templates.ExecuteTemplate(w, "game.html", game)
+		return
+	}
+
+	// Increment turn count
+	game.TurnCount++
+
+	// Check for gravity inversion every 5 turns
+	if game.TurnCount%5 == 0 {
+		game.GravityInverse = !game.GravityInverse
+	}
+
+	// Check for win
+	if checkWin(row, col) {
+		game.Winner = game.CurrentPlayer
+		game.GameOver = true
+		game.FinishHimMode = false
+		templates.ExecuteTemplate(w, "result.html", game)
+		return
+	}
+
+	// Check for draw
+	if checkDraw() {
+		game.Winner = 0
+		game.GameOver = true
+		game.FinishHimMode = false
+		templates.ExecuteTemplate(w, "result.html", game)
+		return
+	}
+
+	game.FinishHimMode = checkFinishHim()
+
+	// Switch player
+	if game.CurrentPlayer == 1 {
+		game.CurrentPlayer = 2
+	} else {
+		game.CurrentPlayer = 1
+	}
+
+	templates.ExecuteTemplate(w, "game.html", game)
 }
 
 func rematchHandler(w http.ResponseWriter, r *http.Request) {
-	initGame(game.Rows, game.Cols)
-	http.Redirect(w, r, "/play", http.StatusSeeOther)
+	gameMutex.Lock()
+	if game != nil {
+		game = initGame(game.Player1Name, game.Player2Name, game.Difficulty, game.Player1Color, game.Player2Color)
+	}
+	gameMutex.Unlock()
+
+	templates.ExecuteTemplate(w, "game.html", game)
 }
 
-func placeToken(col int) {
-	for i := game.Rows - 1; i >= 0; i-- {
-		if game.Board[i][col] == 0 {
-			game.Board[i][col] = game.PlayerTurn
-			game.PlayerTurn = 3 - game.PlayerTurn
-			return
-		}
-	}
-}
+func initGame(player1, player2, difficulty, player1Color, player2Color string) *GameState {
+	var rows, cols, blockedCount int
 
-func checkGameOver() {
-	for r := 0; r < game.Rows; r++ {
-		for c := 0; c < game.Cols; c++ {
-			player := game.Board[r][c]
-			if player == 0 {
-				continue
-			}
-			if checkDirection(r, c, 0, 1, player) || checkDirection(r, c, 1, 0, player) ||
-				checkDirection(r, c, 1, 1, player) || checkDirection(r, c, 1, -1, player) {
-				game.GameOver = true
-				game.Winner = player
-				return
-			}
-		}
+	switch difficulty {
+	case "easy":
+		rows, cols, blockedCount = 6, 7, 3
+	case "hard":
+		rows, cols, blockedCount = 7, 8, 7
+	default: // normal
+		rows, cols, blockedCount = 6, 9, 5
 	}
-	full := true
-	for r := 0; r < game.Rows; r++ {
-		for c := 0; c < game.Cols; c++ {
-			if game.Board[r][c] == 0 {
-				full = false
-				break
-			}
-		}
-	}
-	if full {
-		game.GameOver = true
-		game.Winner = 0
-	}
-}
 
-func checkDirection(r, c, dr, dc, player int) bool {
+	board := make([][]int, rows)
+	for i := range board {
+		board[i] = make([]int, cols)
+	}
+
+	// Add blocked cells
+	blockedCells := make(map[string]bool)
 	count := 0
-	for i := 0; i < 4; i++ {
-		nr, nc := r+i*dr, c+i*dc
-		if nr < 0 || nr >= game.Rows || nc < 0 || nc >= game.Cols || game.Board[nr][nc] != player {
-			return false
+	for count < blockedCount {
+		row := count % rows
+		col := (count * 3) % cols
+		key := strconv.Itoa(row) + "," + strconv.Itoa(col)
+		if !blockedCells[key] {
+			board[row][col] = -1 // -1 represents blocked
+			blockedCells[key] = true
+			count++
 		}
+	}
+
+	return &GameState{
+		Board:          board,
+		CurrentPlayer:  1,
+		Player1Name:    player1,
+		Player2Name:    player2,
+		Player1Color:   player1Color,
+		Player2Color:   player2Color,
+		Winner:         0,
+		GameOver:       false,
+		Rows:           rows,
+		Cols:           cols,
+		Difficulty:     difficulty,
+		TurnCount:      0,
+		GravityInverse: false,
+		BlockedCells:   blockedCells,
+		FinishHimMode:  false,
+	}
+}
+
+func placePiece(col int) int {
+	if game.GravityInverse {
+		// Inverse gravity: pieces fall upward
+		for row := 0; row < game.Rows; row++ {
+			if game.Board[row][col] == 0 {
+				game.Board[row][col] = game.CurrentPlayer
+				return row
+			}
+		}
+	} else {
+		// Normal gravity: pieces fall downward
+		for row := game.Rows - 1; row >= 0; row-- {
+			if game.Board[row][col] == 0 {
+				game.Board[row][col] = game.CurrentPlayer
+				return row
+			}
+		}
+	}
+	return -1 // Column is full
+}
+
+func checkWin(row, col int) bool {
+	player := game.Board[row][col]
+
+	// Check horizontal
+	count := 1
+	// Check left
+	for c := col - 1; c >= 0 && game.Board[row][c] == player; c-- {
 		count++
 	}
-	return count == 4
+	// Check right
+	for c := col + 1; c < game.Cols && game.Board[row][c] == player; c++ {
+		count++
+	}
+	if count >= 4 {
+		return true
+	}
+
+	// Check vertical
+	count = 1
+	// Check up
+	for r := row - 1; r >= 0 && game.Board[r][col] == player; r-- {
+		count++
+	}
+	// Check down
+	for r := row + 1; r < game.Rows && game.Board[r][col] == player; r++ {
+		count++
+	}
+	if count >= 4 {
+		return true
+	}
+
+	// Check diagonal (top-left to bottom-right)
+	count = 1
+	// Check up-left
+	for r, c := row-1, col-1; r >= 0 && c >= 0 && game.Board[r][c] == player; r, c = r-1, c-1 {
+		count++
+	}
+	// Check down-right
+	for r, c := row+1, col+1; r < game.Rows && c < game.Cols && game.Board[r][c] == player; r, c = r+1, c+1 {
+		count++
+	}
+	if count >= 4 {
+		return true
+	}
+
+	// Check diagonal (top-right to bottom-left)
+	count = 1
+	// Check up-right
+	for r, c := row-1, col+1; r >= 0 && c < game.Cols && game.Board[r][c] == player; r, c = r-1, c+1 {
+		count++
+	}
+	// Check down-left
+	for r, c := row+1, col-1; r < game.Rows && c >= 0 && game.Board[r][c] == player; r, c = r+1, c-1 {
+		count++
+	}
+	if count >= 4 {
+		return true
+	}
+
+	return false
+}
+
+func checkDraw() bool {
+	for row := 0; row < game.Rows; row++ {
+		for col := 0; col < game.Cols; col++ {
+			if game.Board[row][col] == 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func checkFinishHim() bool {
+	opponent := 3 - game.CurrentPlayer // Switch to opponent
+
+	// Try each column to see if opponent can win
+	for col := 0; col < game.Cols; col++ {
+		// Simulate placing opponent's piece
+		row := simulatePlacePiece(col, opponent)
+		if row == -1 {
+			continue
+		}
+
+		// Check if this would result in a win
+		game.Board[row][col] = opponent
+		wouldWin := checkWinForPosition(row, col, opponent)
+		game.Board[row][col] = 0 // Undo simulation
+
+		if wouldWin {
+			return true
+		}
+	}
+	return false
+}
+
+func simulatePlacePiece(col int, player int) int {
+	if game.GravityInverse {
+		for row := 0; row < game.Rows; row++ {
+			if game.Board[row][col] == 0 {
+				return row
+			}
+		}
+	} else {
+		for row := game.Rows - 1; row >= 0; row-- {
+			if game.Board[row][col] == 0 {
+				return row
+			}
+		}
+	}
+	return -1
+}
+
+func checkWinForPosition(row, col, player int) bool {
+	// Check horizontal
+	count := 1
+	for c := col - 1; c >= 0 && game.Board[row][c] == player; c-- {
+		count++
+	}
+	for c := col + 1; c < game.Cols && game.Board[row][c] == player; c++ {
+		count++
+	}
+	if count >= 4 {
+		return true
+	}
+
+	// Check vertical
+	count = 1
+	for r := row - 1; r >= 0 && game.Board[r][col] == player; r-- {
+		count++
+	}
+	for r := row + 1; r < game.Rows && game.Board[r][col] == player; r++ {
+		count++
+	}
+	if count >= 4 {
+		return true
+	}
+
+	// Check diagonal (top-left to bottom-right)
+	count = 1
+	for r, c := row-1, col-1; r >= 0 && c >= 0 && game.Board[r][c] == player; r, c = r-1, c-1 {
+		count++
+	}
+	for r, c := row+1, col+1; r < game.Rows && c < game.Cols && game.Board[r][c] == player; r, c = r+1, c+1 {
+		count++
+	}
+	if count >= 4 {
+		return true
+	}
+
+	// Check diagonal (top-right to bottom-left)
+	count = 1
+	for r, c := row-1, col+1; r >= 0 && c < game.Cols && game.Board[r][c] == player; r, c = r-1, c+1 {
+		count++
+	}
+	for r, c := row+1, col-1; r < game.Rows && c >= 0 && game.Board[r][c] == player; r, c = r+1, c-1 {
+		count++
+	}
+	if count >= 4 {
+		return true
+	}
+
+	return false
 }

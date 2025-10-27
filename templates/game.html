@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power 4 - Partie en cours</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: {{if .GravityInverse}}linear-gradient(135deg, #f093fb 0%, #f5576c 100%){{else}}linear-gradient(135deg, #667eea 0%, #764ba2 100%){{end}};
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.5s ease;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+
+        .player-info.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .player-info.inactive {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .player-name {
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .turn-indicator {
+            text-align: center;
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .gravity-indicator {
+            background: {{if .GravityInverse}}#f5576c{{else}}#667eea{{end}};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 700;
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .game-board {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            display: inline-block;
+            margin: 0 auto;
+        }
+
+        .board-container {
+            text-align: center;
+        }
+
+        .board {
+            display: inline-grid;
+            gap: 8px;
+            padding: 16px;
+            background: {{if .GravityInverse}}#f5576c{{else}}#1e40af{{end}};
+            border-radius: 12px;
+            grid-template-columns: repeat({{.Cols}}, 1fr);
+            transition: background 0.5s ease;
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cell.player1 {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
+            animation: dropIn 0.4s ease-out;
+        }
+
+        .cell.player2 {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            box-shadow: 0 4px 8px rgba(251, 191, 36, 0.4);
+            animation: dropIn 0.4s ease-out;
+        }
+
+        .cell.blocked {
+            background: #334155;
+            position: relative;
+        }
+
+        .cell.blocked::before {
+            content: '✕';
+            color: white;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        @keyframes dropIn {
+            from {
+                transform: translateY({{if .GravityInverse}}100px{{else}}-100px{{end}}) scale(0.5);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .controls {
+            margin-top: 24px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .column-btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .column-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .column-btn:active {
+            transform: translateY(0);
+        }
+
+        .stats {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            padding: 12px;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        @media (max-width: 768px) {
+            .cell {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .column-btn {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="player-info {{if eq .CurrentPlayer 1}}active{{else}}inactive{{end}}">
+                <span style="font-size: 24px;">🔴</span>
+                <span class="player-name">{{.Player1Name}}</span>
+            </div>
+            
+            <div class="turn-indicator">
+                <div class="gravity-indicator">
+                    {{if .GravityInverse}}
+                        ⬆️ GRAVITÉ INVERSÉE ⬆️
+                    {{else}}
+                        ⬇️ Gravité Normale ⬇️
+                    {{end}}
+                </div>
+            </div>
+            
+            <div class="player-info {{if eq .CurrentPlayer 2}}active{{else}}inactive{{end}}">
+                <span style="font-size: 24px;">🟡</span>
+                <span class="player-name">{{.Player2Name}}</span>
+            </div>
+        </div>
+
+        <div class="board-container">
+            <div class="game-board">
+                <div class="board">
+                    {{range $rowIndex, $row := .Board}}
+                        {{range $colIndex, $cell := $row}}
+                            <div class="cell {{if eq $cell 1}}player1{{else if eq $cell 2}}player2{{else if eq $cell -1}}blocked{{end}}"></div>
+                        {{end}}
+                    {{end}}
+                </div>
+                
+                <form method="POST" action="/play">
+                    <div class="controls">
+                        {{range $i := iterate .Cols}}
+                            <button type="submit" name="column" value="{{$i}}" class="column-btn">{{add $i 1}}</button>
+                        {{end}}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="stats">
+            <h3 style="margin-bottom: 8px; color: #1e293b;">📊 Statistiques de la partie</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Tour</div>
+                    <div class="stat-value">{{.TurnCount}}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Difficulté</div>
+                    <<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power 4 - Partie en cours</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: {{if .GravityInverse}}linear-gradient(135deg, #f093fb 0%, #f5576c 100%){{else}}linear-gradient(135deg, #667eea 0%, #764ba2 100%){{end}};
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.5s ease;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+
+        .player-info.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .player-info.inactive {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        /* Added custom color display for player tokens */
+        .player-token {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .player-name {
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .turn-indicator {
+            text-align: center;
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .gravity-indicator {
+            background: {{if .GravityInverse}}#f5576c{{else}}#667eea{{end}};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 700;
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Added Finish Him overlay styles */
+        .finish-him-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .finish-him-text {
+            font-size: 120px;
+            font-weight: 900;
+            color: #ff0000;
+            text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000, 0 0 60px #ff0000;
+            animation: finishHimPulse 1s infinite, shake 0.5s infinite;
+            letter-spacing: 10px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes finishHimPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            25% { transform: translateX(-10px) rotate(-2deg); }
+            75% { transform: translateX(10px) rotate(2deg); }
+        }
+
+        .game-board {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            display: inline-block;
+            margin: 0 auto;
+        }
+
+        .board-container {
+            text-align: center;
+        }
+
+        .board {
+            display: inline-grid;
+            gap: 8px;
+            padding: 16px;
+            background: {{if .GravityInverse}}#f5576c{{else}}#1e40af{{end}};
+            border-radius: 12px;
+            grid-template-columns: repeat({{.Cols}}, 1fr);
+            transition: background 0.5s ease;
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Updated cell colors to use custom player colors */
+        .cell.player1 {
+            background: {{.Player1Color}};
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            animation: dropIn 0.4s ease-out;
+        }
+
+        .cell.player2 {
+            background: {{.Player2Color}};
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            animation: dropIn 0.4s ease-out;
+        }
+
+        .cell.blocked {
+            background: #334155;
+            position: relative;
+        }
+
+        .cell.blocked::before {
+            content: '✕';
+            color: white;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        @keyframes dropIn {
+            from {
+                transform: translateY({{if .GravityInverse}}100px{{else}}-100px{{end}}) scale(0.5);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .controls {
+            margin-top: 24px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .column-btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .column-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .column-btn:active {
+            transform: translateY(0);
+        }
+
+        .stats {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            padding: 12px;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        @media (max-width: 768px) {
+            .cell {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .column-btn {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+
+            .finish-him-text {
+                font-size: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Added Finish Him overlay when opponent can win -->
+    {{if .FinishHimMode}}
+    <div class="finish-him-overlay">
+        <div class="finish-him-text">FINISH HIM!</div>
+    </div>
+    {{end}}
+
+    <!-- Added background music -->
+    <audio id="bgMusic" loop>
+        <source src="https://cdn.pixabay.com/audio/2022/03/10/audio_4a468b9c8c.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="finishHimSound">
+        <source src="https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3" type="audio/mpeg">
+    </audio>
+
+    <div class="container">
+        <div class="header">
+            <div class="player-info {{if eq .CurrentPlayer 1}}active{{else}}inactive{{end}}">
+                <span class="player-token" style="background: {{.Player1Color}};"></span>
+                <span class="player-name">{{.Player1Name}}</span>
+            </div>
+            
+            <div class="turn-indicator">
+                <div class="gravity-indicator">
+                    {{if .GravityInverse}}
+                        ⬆️ GRAVITÉ INVERSÉE ⬆️
+                    {{else}}
+                        ⬇️ Gravité Normale ⬇️
+                    {{end}}
+                </div>
+            </div>
+            
+            <div class="player-info {{if eq .CurrentPlayer 2}}active{{else}}inactive{{end}}">
+                <span class="player-token" style="background: {{.Player2Color}};"></span>
+                <span class="player-name">{{.Player2Name}}</span>
+            </div>
+        </div>
+
+        <div class="board-container">
+            <div class="game-board">
+                <div class="board">
+                    {{range $rowIndex, $row := .Board}}
+                        {{range $colIndex, $cell := $row}}
+                            <div class="cell {{if eq $cell 1}}player1{{else if eq $cell 2}}player2{{else if eq $cell -1}}blocked{{end}}"></div>
+                        {{end}}
+                    {{end}}
+                </div>
+                
+                <form method="POST" action="/play">
+                    <div class="controls">
+                        {{range $i := iterate .Cols}}
+                            <button type="submit" name="column" value="{{$i}}" class="column-btn">{{add $i 1}}</button>
+                        {{end}}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="stats">
+            <h3 style="margin-bottom: 8px; color: #1e293b;">📊 Statistiques de la partie</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Tour</div>
+                    <div class="stat-value">{{.TurnCount}}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Difficulté</div>
+                    <div class="stat-value">{{.Difficulty}}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Grille</div>
+                    <div class="stat-value">{{.Rows}}x{{.Cols}}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const bgMusic = document.getElementById('bgMusic');
+        const finishHimSound = document.getElementById('finishHimSound');
+        const finishHimMode = {{.FinishHimMode}};
+
+        // Start background music on user interaction
+        document.addEventListener('click', function() {
+            if (bgMusic.paused) {
+                bgMusic.volume = 0.3;
+                bgMusic.play().catch(e => console.log('Audio play failed:', e));
+            }
+        }, { once: true });
+
+        // Play Finish Him sound if in finish him mode
+        if (finishHimMode) {
+            setTimeout(() => {
+                finishHimSound.volume = 0.7;
+                finishHimSound.play().catch(e => console.log('Finish Him sound failed:', e));
+            }, 500);
+        }
+    </script>
+</body>
+</html>
+div class="stat-value">{{.Difficulty}}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Grille</div>
+                    <div class="stat-value">{{.Rows}}x{{.Cols}}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

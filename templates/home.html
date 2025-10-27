@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power 4 - Accueil</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 48px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #334155;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Added color picker styles */
+        .color-picker-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .color-picker-group input[type="text"] {
+            flex: 1;
+        }
+
+        .color-preview {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 3px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .color-preview:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        input[type="color"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .difficulty-info {
+            margin-top: 8px;
+            padding: 12px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 8px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .emoji {
+            font-size: 64px;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="emoji">🎮</div>
+        <h1>Power 4</h1>
+        <p class="subtitle">Connectez 4 jetons pour gagner !</p>
+        
+        <form action="/start" method="POST">
+            <div class="form-group">
+                <label for="player1">Nom du Joueur 1</label>
+                <input type="text" id="player1" name="player1" placeholder="Entrez le nom..." required>
+            </div>
+            
+            <!-- Added color picker for player 1 -->
+            <div class="form-group">
+                <label for="player1color">Couleur du Joueur 1</label>
+                <div class="color-picker-group">
+                    <input type="text" id="player1color" name="player1color" value="#ef4444" readonly>
+                    <label for="player1colorpicker" class="color-preview" id="player1preview" style="background: #ef4444;"></label>
+                    <input type="color" id="player1colorpicker" value="#ef4444" onchange="updateColor(1, this.value)">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="player2">Nom du Joueur 2</label>
+                <input type="text" id="player2" name="player2" placeholder="Entrez le nom..." required>
+            </div>
+            
+            <!-- Added color picker for player 2 -->
+            <div class="form-group">
+                <label for="player2color">Couleur du Joueur 2</label>
+                <div class="color-picker-group">
+                    <input type="text" id="player2color" name="player2color" value="#fbbf24" readonly>
+                    <label for="player2colorpicker" class="color-preview" id="player2preview" style="background: #fbbf24;"></label>
+                    <input type="color" id="player2colorpicker" value="#fbbf24" onchange="updateColor(2, this.value)">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="difficulty">⚡ Niveau de difficulté</label>
+                <select id="difficulty" name="difficulty" onchange="updateDifficultyInfo()">
+                    <option value="easy">Facile</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="hard">Difficile</option>
+                </select>
+                <div class="difficulty-info" id="difficultyInfo">
+                    Grille 6x9 avec 5 cases bloquées
+                </div>
+            </div>
+            
+            <button type="submit">Commencer la partie 🚀</button>
+        </form>
+    </div>
+
+    <script>
+        function updateColor(player, color) {
+            document.getElementById('player' + player + 'color').value = color;
+            document.getElementById('player' + player + 'preview').style.background = color;
+        }
+
+        function updateDifficultyInfo() {
+            const difficulty = document.getElementById('difficulty').value;
+            const info = document.getElementById('difficultyInfo');
+            
+            switch(difficulty) {
+                case 'easy':
+                    info.textContent = 'Grille 6x7 avec 3 cases bloquées';
+                    break;
+                case 'normal':
+                    info.textContent = 'Grille 6x9 avec 5 cases bloquées';
+                    break;
+                case 'hard':
+                    info.textContent = 'Grille 7x8 avec 7 cases bloquées';
+                    break;
+            }
+        }
+    </script>
+</body>
+</html>
