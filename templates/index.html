@@ -1,113 +1,36 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Power4 Web</title>
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f7f7f7;
-  text-align: center;
-  margin: 0;
-  padding: 20px;
-}
-h1, h2 { color: #333; }
-
-table {
-  margin: 20px auto;
-  border-collapse: collapse;
-}
-td {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
-  background: #ddd;
-}
-.red { background: red; }
-.blue { background: blue; }
-
-button {
-  margin: 4px;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-}
-button:hover { opacity: 0.9; }
-input, select {
-  padding: 6px;
-  margin: 4px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-}
-form { margin: 10px; }
-
-.container {
-  background: white;
-  display: inline-block;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 0 12px rgba(0,0,0,0.1);
-}
-.message {
-  color: #333;
-  font-weight: bold;
-  margin: 8px 0;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>Power4 Web</title>
+    <style>
+        table { border-collapse: collapse; }
+        td { width: 50px; height: 50px; text-align: center; vertical-align: middle; border: 1px solid black; }
+        .player1 { background-color: red; }
+        .player2 { background-color: yellow; }
+        body.normal { background-color: #d0f0fd; }
+        body.inverse { background-color: #fcd0d0; }
+    </style>
 </head>
-<body>
-
-{{if gt .Rows 0}}
-  <div class="container">
-    <h2>{{index .Players 1}} (rouge) vs {{index .Players 2}} (bleu)</h2>
-    <p><b>Difficulté :</b> {{.Difficulty}} — <b>Tour :</b> {{.TurnCount}}</p>
-    <p><b>Gravité :</b> {{if .Gravity}}Normale (vers le bas){{else}}Inversée (vers le haut){{end}}</p>
-    <p class="message">{{.Message}}</p>
-
-    <table style="background:{{if .Gravity}}#fff8f8{{else}}#f3e8ff{{end}};">
-      {{range $r, $row := .Board}}
-        <tr>
-        {{range $c, $v := $row}}
-          <td class="{{if eq $v 1}}red{{else if eq $v 2}}blue{{end}}"></td>
-        {{end}}
-        </tr>
-      {{end}}
-    </table>
-
-    {{if not .GameOver}}
-      <form action="/play" method="post">
-        {{range $i, $ := .Board 0}}
-          <button name="column" value="{{$i}}">↓</button>
-        {{end}}
-      </form>
-    {{else}}
-      <p><b>{{.Message}}</b></p>
-    {{end}}
-
-    <form action="/reset" method="post">
-      <button style="background:#555; color:white;">Revenir à l'accueil</button>
+<body class="{{if .GravityDown}}normal{{else}}inverse{{end}}">
+    <h1>Power4 Web</h1>
+    <p>{{index .PlayerNames .CurrentPlayerIndex}}'s turn</p>
+    <p>Gravity: {{if .GravityDown}}Normal{{else}}Inverse{{end}}</p>
+    <form action="/play" method="POST">
+        <table>
+            {{range $i, $row := .Board}}
+            <tr>
+                {{range $j, $cell := $row}}
+                <td class="{{if eq $cell 1}}player1{{else if eq $cell 2}}player2{{end}}"></td>
+                {{end}}
+            </tr>
+            {{end}}
+        </table>
+        <p>Choose a column (0-{{.CurrentMaxCol}}): <input type="number" name="column" min="0" max="{{.CurrentMaxCol}}" required></p>
+        <button type="submit">Play</button>
     </form>
-  </div>
-
-{{else}}
-  <div class="container">
-    <h1>Bienvenue dans Power4 Web</h1>
-    <form action="/start" method="post">
-      <p>Joueur 1 (rouge) : <input name="player1" placeholder="Rouge"></p>
-      <p>Joueur 2 (bleu) : <input name="player2" placeholder="Bleu"></p>
-      <p>Difficulté :
-        <select name="difficulty">
-          <option value="easy">Facile</option>
-          <option value="normal">Normal</option>
-          <option value="hard">Difficile</option>
-        </select>
-      </p>
-      <button type="submit" style="background:#007bff; color:white;">Commencer la partie</button>
+    <form action="/rematch" method="POST">
+        <button type="submit">Rematch</button>
     </form>
-  </div>
-{{end}}
-
 </body>
 </html>

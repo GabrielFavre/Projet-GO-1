@@ -1,197 +1,193 @@
 package main
 
 import (
-	"fmt"
 	"html/template"
-	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
 type Game struct {
-	Board      [][]int
-	Rows       int
-	Columns    int
-	Current    int
-	Winner     int
-	GameOver   bool
-	Message    string
-	Players    [3]string
-	Gravity    bool
-	TurnCount  int
-	Difficulty string
+	Rows               int
+	Cols               int
+	Board              [][]int
+	PlayerTurn         int
+	PlayerNames        [2]string
+	TurnCount          int
+	GravityDown        bool
+	GameOver           bool
+	Winner             int
+	CurrentPlayerIndex int
+	CurrentMaxCol      int
 }
 
-var game Game
-var tmpl = template.Must(template.ParseFiles("templates/index.html"))
+var (
+	tmplIndex = template.Must(template.ParseFiles("templates/index.html"))
+	tmplStart = template.Must(template.ParseFiles("templates/start.html"))
+	tmplLevel = template.Must(template.ParseFiles("templates/level.html"))
+	tmplWin   = template.Must(template.ParseFiles("templates/win.html"))
+	tmplDraw  = template.Must(template.ParseFiles("templates/draw.html"))
+	game      = &Game{}
+)
 
 func main() {
-	http.HandleFunc("/", handleIndex)
-	http.HandleFunc("/start", handleStart)
-	http.HandleFunc("/play", handlePlay)
-	http.HandleFunc("/reset", handleReset)
-
-	log.Println("Serveur lancé sur http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func newGame(p1, p2, difficulty string) {
 	rand.Seed(time.Now().UnixNano())
-	game.Difficulty = difficulty
-	game.Players[1] = p1
-	game.Players[2] = p2
-	game.Gravity = true
+
+	http.HandleFunc("/", startHandler)
+	http.HandleFunc("/level", levelHandler)
+	http.HandleFunc("/play", playHandler)
+	http.HandleFunc("/rematch", rematchHandler)
+	http.ListenAndServe(":8080", nil)
+}
+
+// Page de démarrage
+func startHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		game.PlayerNames[0] = r.FormValue("player1")
+		game.PlayerNames[1] = r.FormValue("player2")
+		http.Redirect(w, r, "/level", http.StatusSeeOther)
+		return
+	}
+	tmplStart.Execute(w, nil)
+}
+
+// Choix du niveau
+func levelHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		level := r.FormValue("level")
+		switch level {
+		case "easy":
+			initGame(6, 7, 3)
+		case "normal":
+			initGame(6, 9, 5)
+		case "hard":
+			initGame(7, 8, 7)
+		default:
+			initGame(6, 7, 3)
+		}
+		http.Redirect(w, r, "/play", http.StatusSeeOther)
+		return
+	}
+	tmplLevel.Execute(w, nil)
+}
+
+// Initialisation du jeu
+func initGame(rows, cols, blocks int) {
+	game.Rows = rows
+	game.Cols = cols
+	game.PlayerTurn = 1
 	game.TurnCount = 0
-	game.Winner = 0
+	game.GravityDown = true
 	game.GameOver = false
-	game.Message = ""
-	game.Current = 1
+	game.Winner = 0
+	game.CurrentPlayerIndex = 0
+	game.CurrentMaxCol = cols - 1
 
-	switch difficulty {
-	case "normal":
-		game.Rows, game.Columns = 6, 9
-	case "hard":
-		game.Rows, game.Columns = 7, 8
-	default:
-		game.Rows, game.Columns = 6, 7
+	game.Board = make([][]int, rows)
+	for i := range game.Board {
+		game.Board[i] = make([]int, cols)
 	}
 
-	game.Board = make([][]int, game.Rows)
-	for r := range game.Board {
-		game.Board[r] = make([]int, game.Columns)
-	}
-
-	fill := map[string]int{"easy": 3, "normal": 5, "hard": 7}[difficulty]
-	for i := 0; i < fill; i++ {
-		r := rand.Intn(game.Rows)
-		c := rand.Intn(game.Columns)
-		game.Board[r][c] = rand.Intn(2) + 1
-	}
-}
-
-func handleIndex(w http.ResponseWriter, r *http.Request) {
-	if err := tmpl.Execute(w, game); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func handleStart(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-	p1 := r.FormValue("player1")
-	p2 := r.FormValue("player2")
-	if p1 == "" {
-		p1 = "Rouge"
-	}
-	if p2 == "" {
-		p2 = "Bleu"
-	}
-	d := strings.ToLower(r.FormValue("difficulty"))
-	if d == "" {
-		d = "easy"
-	}
-	newGame(p1, p2, d)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-func handlePlay(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost || game.GameOver {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-	col, _ := strconv.Atoi(r.FormValue("column"))
-	if col < 0 || col >= game.Columns {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-	placed := false
-	if game.Gravity {
-		for row := game.Rows - 1; row >= 0; row-- {
-			if game.Board[row][col] == 0 {
-				game.Board[row][col] = game.Current
-				handleAfterMove(row, col)
-				placed = true
-				break
-			}
+	for b := 0; b < blocks; b++ {
+		randRow := rand.Intn(rows)
+		randCol := rand.Intn(cols)
+		if game.Board[randRow][randCol] == 0 {
+			game.Board[randRow][randCol] = rand.Intn(2) + 1
 		}
-	} else {
-		for row := 0; row < game.Rows; row++ {
-			if game.Board[row][col] == 0 {
-				game.Board[row][col] = game.Current
-				handleAfterMove(row, col)
-				placed = true
-				break
+	}
+}
+
+// Page du jeu
+func playHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		colStr := r.FormValue("column")
+		col, err := strconv.Atoi(colStr)
+		if err == nil && col >= 0 && col < game.Cols {
+			placeToken(col)
+			game.TurnCount++
+			if game.TurnCount%5 == 0 {
+				game.GravityDown = !game.GravityDown
 			}
 		}
 	}
 
-	if !placed {
-		game.Message = "Colonne pleine !"
+	// Vérifier victoire
+	for r := 0; r < game.Rows; r++ {
+		for c := 0; c < game.Cols; c++ {
+			if game.Board[r][c] != 0 && checkWin(r, c, game.Board[r][c]) {
+				game.GameOver = true
+				game.Winner = game.Board[r][c]
+			}
+		}
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
+	// Vérifier match nul
+	game.GameOver = game.GameOver || isDraw()
 
-func handleAfterMove(r, c int) {
-	player := game.Current
-	if checkWin(r, c, player) {
-		game.Winner = player
-		game.GameOver = true
-		game.Message = fmt.Sprintf("%s a gagné !", game.Players[player])
-		return
-	}
-	if checkDraw() {
-		game.GameOver = true
-		game.Message = "Match nul !"
-		return
-	}
+	game.CurrentPlayerIndex = game.PlayerTurn - 1
 
-	game.TurnCount++
-	if game.TurnCount%5 == 0 {
-		game.Gravity = !game.Gravity
-		if game.Gravity {
-			game.Message = "Gravité normale rétablie."
+	if game.GameOver {
+		if game.Winner != 0 {
+			data := struct {
+				Game
+				WinnerIndex int
+			}{
+				Game:        *game,
+				WinnerIndex: game.Winner - 1,
+			}
+			tmplWin.Execute(w, data)
+			return
 		} else {
-			game.Message = "Gravité inversée !"
+			tmplDraw.Execute(w, game)
+			return
 		}
 	}
 
-	if game.Current == 1 {
-		game.Current = 2
-	} else {
-		game.Current = 1
-	}
+	tmplIndex.Execute(w, game)
 }
 
-func checkDraw() bool {
-	for _, row := range game.Board {
-		for _, cell := range row {
-			if cell == 0 {
-				return false
+// Rematch
+func rematchHandler(w http.ResponseWriter, r *http.Request) {
+	initGame(game.Rows, game.Cols, 0)
+	http.Redirect(w, r, "/play", http.StatusSeeOther)
+}
+
+// Placer jeton selon gravité
+func placeToken(col int) {
+	if game.GravityDown {
+		for i := game.Rows - 1; i >= 0; i-- {
+			if game.Board[i][col] == 0 {
+				game.Board[i][col] = game.PlayerTurn
+				game.PlayerTurn = 3 - game.PlayerTurn
+				return
+			}
+		}
+	} else {
+		for i := 0; i < game.Rows; i++ {
+			if game.Board[i][col] == 0 {
+				game.Board[i][col] = game.PlayerTurn
+				game.PlayerTurn = 3 - game.PlayerTurn
+				return
 			}
 		}
 	}
-	return true
 }
 
-func checkWin(r, c, player int) bool {
+// Vérifier victoire
+func checkWin(row, col, player int) bool {
 	dirs := [][2]int{{0, 1}, {1, 0}, {1, 1}, {1, -1}}
 	for _, d := range dirs {
 		count := 1
 		for i := 1; i < 4; i++ {
-			nr, nc := r+d[0]*i, c+d[1]*i
-			if nr < 0 || nr >= game.Rows || nc < 0 || nc >= game.Columns || game.Board[nr][nc] != player {
+			r, c := row+d[0]*i, col+d[1]*i
+			if r < 0 || r >= game.Rows || c < 0 || c >= game.Cols || game.Board[r][c] != player {
 				break
 			}
 			count++
 		}
 		for i := 1; i < 4; i++ {
-			nr, nc := r-d[0]*i, c-d[1]*i
-			if nr < 0 || nr >= game.Rows || nc < 0 || nc >= game.Columns || game.Board[nr][nc] != player {
+			r, c := row-d[0]*i, col-d[1]*i
+			if r < 0 || r >= game.Rows || c < 0 || c >= game.Cols || game.Board[r][c] != player {
 				break
 			}
 			count++
@@ -203,7 +199,14 @@ func checkWin(r, c, player int) bool {
 	return false
 }
 
-func handleReset(w http.ResponseWriter, r *http.Request) {
-	game = Game{}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+// Vérifier match nul
+func isDraw() bool {
+	for r := 0; r < game.Rows; r++ {
+		for c := 0; c < game.Cols; c++ {
+			if game.Board[r][c] == 0 {
+				return false
+			}
+		}
+	}
+	return true
 }
