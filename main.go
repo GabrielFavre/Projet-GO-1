@@ -64,7 +64,6 @@ func newGame(p1, p2, difficulty string) {
 		game.Board[r] = make([]int, game.Columns)
 	}
 
-	// pré-remplissage selon difficulté
 	fill := map[string]int{"easy": 3, "normal": 5, "hard": 7}[difficulty]
 	for i := 0; i < fill; i++ {
 		r := rand.Intn(game.Rows)
@@ -74,14 +73,8 @@ func newGame(p1, p2, difficulty string) {
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
-	if game.Rows == 0 {
-		if err := tmpl.Execute(w, "start"); err != nil {
-			http.Error(w, err.Error(), 500)
-		}
-		return
-	}
 	if err := tmpl.Execute(w, game); err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -116,8 +109,6 @@ func handlePlay(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-
-	// placement selon gravité
 	placed := false
 	if game.Gravity {
 		for row := game.Rows - 1; row >= 0; row-- {
