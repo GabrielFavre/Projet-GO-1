@@ -1,36 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Power4 Web</title>
-    <style>
-        table { border-collapse: collapse; }
-        td { width: 50px; height: 50px; text-align: center; vertical-align: middle; border: 1px solid black; }
-        .player1 { background-color: red; }
-        .player2 { background-color: yellow; }
-        body.normal { background-color: #d0f0fd; }
-        body.inverse { background-color: #fcd0d0; }
-    </style>
+<meta charset="UTF-8">
+<title>Power4 Web</title>
+<link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="{{if .GravityDown}}normal{{else}}inverse{{end}}">
-    <h1>Power4 Web</h1>
-    <p>{{index .PlayerNames .CurrentPlayerIndex}}'s turn</p>
-    <p>Gravity: {{if .GravityDown}}Normal{{else}}Inverse{{end}}</p>
-    <form action="/play" method="POST">
-        <table>
-            {{range $i, $row := .Board}}
-            <tr>
-                {{range $j, $cell := $row}}
-                <td class="{{if eq $cell 1}}player1{{else if eq $cell 2}}player2{{end}}"></td>
-                {{end}}
-            </tr>
-            {{end}}
-        </table>
-        <p>Choose a column (0-{{.CurrentMaxCol}}): <input type="number" name="column" min="0" max="{{.CurrentMaxCol}}" required></p>
-        <button type="submit">Play</button>
-    </form>
-    <form action="/rematch" method="POST">
-        <button type="submit">Rematch</button>
-    </form>
+<body>
+<h1>Power4 Web</h1>
+<p id="turn">Turn: {{index .PlayerNames .CurrentPlayerIndex}}</p>
+<div id="board" style="grid-template-columns: repeat({{.Cols}}, 60px); grid-template-rows: repeat({{.Rows}}, 60px);"></div>
+<button onclick="location.href='/rematch'">Rematch</button>
+<script src="/static/script.js"></script>
+<script>
+let board = {{.BoardJSON}};
+let currentPlayer = {{.CurrentPlayerIndex}};
+initBoard(board, {{.Cols}}, {{.Rows}}, currentPlayer);
+</script>
 </body>
 </html>

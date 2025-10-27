@@ -1,10 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"html/template"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -19,29 +19,31 @@ type Game struct {
 	GameOver           bool
 	Winner             int
 	CurrentPlayerIndex int
-	CurrentMaxCol      int
+}
+
+type IndexData struct {
+	*Game
+	BoardJSON template.JS
 }
 
 var (
-	tmplIndex = template.Must(template.ParseFiles("templates/index.html"))
+	game      = &Game{}
 	tmplStart = template.Must(template.ParseFiles("templates/start.html"))
 	tmplLevel = template.Must(template.ParseFiles("templates/level.html"))
-	tmplWin   = template.Must(template.ParseFiles("templates/win.html"))
-	tmplDraw  = template.Must(template.ParseFiles("templates/draw.html"))
-	game      = &Game{}
+	tmplPlay  = template.Must(template.ParseFiles("templates/index.html"))
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	http.HandleFunc("/", startHandler)
 	http.HandleFunc("/level", levelHandler)
 	http.HandleFunc("/play", playHandler)
+	http.HandleFunc("/move", moveHandler)
 	http.HandleFunc("/rematch", rematchHandler)
 	http.ListenAndServe(":8080", nil)
 }
 
-// Page de démarrage
 func startHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		game.PlayerNames[0] = r.FormValue("player1")
@@ -52,7 +54,6 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	tmplStart.Execute(w, nil)
 }
 
-// Choix du niveau
 func levelHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		level := r.FormValue("level")
@@ -72,7 +73,6 @@ func levelHandler(w http.ResponseWriter, r *http.Request) {
 	tmplLevel.Execute(w, nil)
 }
 
-// Initialisation du jeu
 func initGame(rows, cols, blocks int) {
 	game.Rows = rows
 	game.Cols = cols
@@ -82,37 +82,41 @@ func initGame(rows, cols, blocks int) {
 	game.GameOver = false
 	game.Winner = 0
 	game.CurrentPlayerIndex = 0
-	game.CurrentMaxCol = cols - 1
-
 	game.Board = make([][]int, rows)
 	for i := range game.Board {
 		game.Board[i] = make([]int, cols)
 	}
-
 	for b := 0; b < blocks; b++ {
-		randRow := rand.Intn(rows)
-		randCol := rand.Intn(cols)
-		if game.Board[randRow][randCol] == 0 {
-			game.Board[randRow][randCol] = rand.Intn(2) + 1
+		r := rand.Intn(rows)
+		c := rand.Intn(cols)
+		if game.Board[r][c] == 0 {
+			game.Board[r][c] = rand.Intn(2) + 1
 		}
 	}
 }
 
-// Page du jeu
 func playHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		colStr := r.FormValue("column")
-		col, err := strconv.Atoi(colStr)
-		if err == nil && col >= 0 && col < game.Cols {
-			placeToken(col)
-			game.TurnCount++
-			if game.TurnCount%5 == 0 {
-				game.GravityDown = !game.GravityDown
-			}
-		}
+	boardBytes, _ := json.Marshal(game.Board)
+	data := IndexData{
+		Game:      game,
+		BoardJSON: template.JS(boardBytes),
 	}
+	tmplPlay.Execute(w, data)
+}
 
-	// Vérifier victoire
+func moveHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost || game.GameOver {
+		return
+	}
+	var data struct {
+		Col int `json:"col"`
+	}
+	json.NewDecoder(r.Body).Decode(&data)
+	placeToken(data.Col)
+	game.TurnCount++
+	if game.TurnCount%5 == 0 {
+		game.GravityDown = !game.GravityDown
+	}
 	for r := 0; r < game.Rows; r++ {
 		for c := 0; c < game.Cols; c++ {
 			if game.Board[r][c] != 0 && checkWin(r, c, game.Board[r][c]) {
@@ -121,38 +125,18 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// Vérifier match nul
-	game.GameOver = game.GameOver || isDraw()
-
-	game.CurrentPlayerIndex = game.PlayerTurn - 1
-
-	if game.GameOver {
-		if game.Winner != 0 {
-			data := struct {
-				Game
-				WinnerIndex int
-			}{
-				Game:        *game,
-				WinnerIndex: game.Winner - 1,
-			}
-			tmplWin.Execute(w, data)
-			return
-		} else {
-			tmplDraw.Execute(w, game)
-			return
-		}
+	if game.GameOver || isDraw() {
+		game.GameOver = true
 	}
-
-	tmplIndex.Execute(w, game)
+	game.CurrentPlayerIndex = game.PlayerTurn - 1
+	json.NewEncoder(w).Encode(game)
 }
 
-// Rematch
 func rematchHandler(w http.ResponseWriter, r *http.Request) {
 	initGame(game.Rows, game.Cols, 0)
 	http.Redirect(w, r, "/play", http.StatusSeeOther)
 }
 
-// Placer jeton selon gravité
 func placeToken(col int) {
 	if game.GravityDown {
 		for i := game.Rows - 1; i >= 0; i-- {
@@ -173,7 +157,6 @@ func placeToken(col int) {
 	}
 }
 
-// Vérifier victoire
 func checkWin(row, col, player int) bool {
 	dirs := [][2]int{{0, 1}, {1, 0}, {1, 1}, {1, -1}}
 	for _, d := range dirs {
@@ -199,7 +182,6 @@ func checkWin(row, col, player int) bool {
 	return false
 }
 
-// Vérifier match nul
 func isDraw() bool {
 	for r := 0; r < game.Rows; r++ {
 		for c := 0; c < game.Cols; c++ {
