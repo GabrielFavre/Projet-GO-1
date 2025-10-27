@@ -3,9 +3,11 @@ package main
 import (
 	"html/template"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type GameState struct {
@@ -24,6 +26,7 @@ type GameState struct {
 	GravityInverse bool
 	BlockedCells   map[string]bool
 	FinishHimMode  bool
+	GameMode       string
 }
 
 var (
@@ -33,7 +36,8 @@ var (
 )
 
 func main() {
-	// Initialize templates with custom functions
+	rand.Seed(time.Now().UnixNano())
+
 	funcMap := template.FuncMap{
 		"iterate": func(count int) []int {
 			var items []int
@@ -60,8 +64,9 @@ func main() {
 	http.HandleFunc("/start", startGameHandler)
 	http.HandleFunc("/play", playHandler)
 	http.HandleFunc("/rematch", rematchHandler)
+	http.HandleFunc("/ai-move", aiMoveHandler)
 
-	log.Println("🎮 Server starting on http://localhost:8080")
+	log.Println("Server starting on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -80,12 +85,17 @@ func startGameHandler(w http.ResponseWriter, r *http.Request) {
 	difficulty := r.FormValue("difficulty")
 	player1Color := r.FormValue("player1color")
 	player2Color := r.FormValue("player2color")
+	gameMode := r.FormValue("gamemode")
 
 	if player1 == "" {
 		player1 = "Joueur 1"
 	}
 	if player2 == "" {
-		player2 = "Joueur 2"
+		if gameMode == "ai" {
+			player2 = "IA"
+		} else {
+			player2 = "Joueur 2"
+		}
 	}
 	if difficulty == "" {
 		difficulty = "normal"
@@ -96,9 +106,12 @@ func startGameHandler(w http.ResponseWriter, r *http.Request) {
 	if player2Color == "" {
 		player2Color = "#fbbf24"
 	}
+	if gameMode == "" {
+		gameMode = "pvp"
+	}
 
 	gameMutex.Lock()
-	game = initGame(player1, player2, difficulty, player1Color, player2Color)
+	game = initGame(player1, player2, difficulty, player1Color, player2Color, gameMode)
 	gameMutex.Unlock()
 
 	templates.ExecuteTemplate(w, "game.html", game)
@@ -125,22 +138,18 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Place the piece
 	row := placePiece(col)
 	if row == -1 {
 		templates.ExecuteTemplate(w, "game.html", game)
 		return
 	}
 
-	// Increment turn count
 	game.TurnCount++
 
-	// Check for gravity inversion every 5 turns
 	if game.TurnCount%5 == 0 {
 		game.GravityInverse = !game.GravityInverse
 	}
 
-	// Check for win
 	if checkWin(row, col) {
 		game.Winner = game.CurrentPlayer
 		game.GameOver = true
@@ -149,7 +158,6 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for draw
 	if checkDraw() {
 		game.Winner = 0
 		game.GameOver = true
@@ -158,14 +166,62 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	game.FinishHimMode = checkFinishHim()
-
-	// Switch player
 	if game.CurrentPlayer == 1 {
 		game.CurrentPlayer = 2
 	} else {
 		game.CurrentPlayer = 1
 	}
+
+	game.FinishHimMode = checkFinishHim()
+
+	templates.ExecuteTemplate(w, "game.html", game)
+}
+
+func aiMoveHandler(w http.ResponseWriter, r *http.Request) {
+	gameMutex.Lock()
+	defer gameMutex.Unlock()
+
+	if game.GameOver || game.GameMode != "ai" || game.CurrentPlayer != 2 {
+		templates.ExecuteTemplate(w, "game.html", game)
+		return
+	}
+
+	col := getAIMove()
+	if col == -1 {
+		templates.ExecuteTemplate(w, "game.html", game)
+		return
+	}
+
+	row := placePiece(col)
+	if row == -1 {
+		templates.ExecuteTemplate(w, "game.html", game)
+		return
+	}
+
+	game.TurnCount++
+
+	if game.TurnCount%5 == 0 {
+		game.GravityInverse = !game.GravityInverse
+	}
+
+	if checkWin(row, col) {
+		game.Winner = game.CurrentPlayer
+		game.GameOver = true
+		game.FinishHimMode = false
+		templates.ExecuteTemplate(w, "result.html", game)
+		return
+	}
+
+	if checkDraw() {
+		game.Winner = 0
+		game.GameOver = true
+		game.FinishHimMode = false
+		templates.ExecuteTemplate(w, "result.html", game)
+		return
+	}
+
+	game.CurrentPlayer = 1
+	game.FinishHimMode = checkFinishHim()
 
 	templates.ExecuteTemplate(w, "game.html", game)
 }
@@ -173,14 +229,14 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 func rematchHandler(w http.ResponseWriter, r *http.Request) {
 	gameMutex.Lock()
 	if game != nil {
-		game = initGame(game.Player1Name, game.Player2Name, game.Difficulty, game.Player1Color, game.Player2Color)
+		game = initGame(game.Player1Name, game.Player2Name, game.Difficulty, game.Player1Color, game.Player2Color, game.GameMode)
 	}
 	gameMutex.Unlock()
 
 	templates.ExecuteTemplate(w, "game.html", game)
 }
 
-func initGame(player1, player2, difficulty, player1Color, player2Color string) *GameState {
+func initGame(player1, player2, difficulty, player1Color, player2Color, gameMode string) *GameState {
 	var rows, cols, blockedCount int
 
 	switch difficulty {
@@ -188,7 +244,7 @@ func initGame(player1, player2, difficulty, player1Color, player2Color string) *
 		rows, cols, blockedCount = 6, 7, 3
 	case "hard":
 		rows, cols, blockedCount = 7, 8, 7
-	default: // normal
+	default:
 		rows, cols, blockedCount = 6, 9, 5
 	}
 
@@ -197,7 +253,6 @@ func initGame(player1, player2, difficulty, player1Color, player2Color string) *
 		board[i] = make([]int, cols)
 	}
 
-	// Add blocked cells
 	blockedCells := make(map[string]bool)
 	count := 0
 	for count < blockedCount {
@@ -205,7 +260,7 @@ func initGame(player1, player2, difficulty, player1Color, player2Color string) *
 		col := (count * 3) % cols
 		key := strconv.Itoa(row) + "," + strconv.Itoa(col)
 		if !blockedCells[key] {
-			board[row][col] = -1 // -1 represents blocked
+			board[row][col] = -1
 			blockedCells[key] = true
 			count++
 		}
@@ -227,12 +282,12 @@ func initGame(player1, player2, difficulty, player1Color, player2Color string) *
 		GravityInverse: false,
 		BlockedCells:   blockedCells,
 		FinishHimMode:  false,
+		GameMode:       gameMode,
 	}
 }
 
 func placePiece(col int) int {
 	if game.GravityInverse {
-		// Inverse gravity: pieces fall upward
 		for row := 0; row < game.Rows; row++ {
 			if game.Board[row][col] == 0 {
 				game.Board[row][col] = game.CurrentPlayer
@@ -240,7 +295,6 @@ func placePiece(col int) int {
 			}
 		}
 	} else {
-		// Normal gravity: pieces fall downward
 		for row := game.Rows - 1; row >= 0; row-- {
 			if game.Board[row][col] == 0 {
 				game.Board[row][col] = game.CurrentPlayer
@@ -248,19 +302,16 @@ func placePiece(col int) int {
 			}
 		}
 	}
-	return -1 // Column is full
+	return -1
 }
 
 func checkWin(row, col int) bool {
 	player := game.Board[row][col]
 
-	// Check horizontal
 	count := 1
-	// Check left
 	for c := col - 1; c >= 0 && game.Board[row][c] == player; c-- {
 		count++
 	}
-	// Check right
 	for c := col + 1; c < game.Cols && game.Board[row][c] == player; c++ {
 		count++
 	}
@@ -268,13 +319,10 @@ func checkWin(row, col int) bool {
 		return true
 	}
 
-	// Check vertical
 	count = 1
-	// Check up
 	for r := row - 1; r >= 0 && game.Board[r][col] == player; r-- {
 		count++
 	}
-	// Check down
 	for r := row + 1; r < game.Rows && game.Board[r][col] == player; r++ {
 		count++
 	}
@@ -282,13 +330,10 @@ func checkWin(row, col int) bool {
 		return true
 	}
 
-	// Check diagonal (top-left to bottom-right)
 	count = 1
-	// Check up-left
 	for r, c := row-1, col-1; r >= 0 && c >= 0 && game.Board[r][c] == player; r, c = r-1, c-1 {
 		count++
 	}
-	// Check down-right
 	for r, c := row+1, col+1; r < game.Rows && c < game.Cols && game.Board[r][c] == player; r, c = r+1, c+1 {
 		count++
 	}
@@ -296,13 +341,10 @@ func checkWin(row, col int) bool {
 		return true
 	}
 
-	// Check diagonal (top-right to bottom-left)
 	count = 1
-	// Check up-right
 	for r, c := row-1, col+1; r >= 0 && c < game.Cols && game.Board[r][c] == player; r, c = r-1, c+1 {
 		count++
 	}
-	// Check down-left
 	for r, c := row+1, col-1; r < game.Rows && c >= 0 && game.Board[r][c] == player; r, c = r+1, c-1 {
 		count++
 	}
@@ -325,20 +367,17 @@ func checkDraw() bool {
 }
 
 func checkFinishHim() bool {
-	opponent := 3 - game.CurrentPlayer // Switch to opponent
+	opponent := 3 - game.CurrentPlayer
 
-	// Try each column to see if opponent can win
 	for col := 0; col < game.Cols; col++ {
-		// Simulate placing opponent's piece
 		row := simulatePlacePiece(col, opponent)
 		if row == -1 {
 			continue
 		}
 
-		// Check if this would result in a win
 		game.Board[row][col] = opponent
 		wouldWin := checkWinForPosition(row, col, opponent)
-		game.Board[row][col] = 0 // Undo simulation
+		game.Board[row][col] = 0
 
 		if wouldWin {
 			return true
@@ -365,7 +404,6 @@ func simulatePlacePiece(col int, player int) int {
 }
 
 func checkWinForPosition(row, col, player int) bool {
-	// Check horizontal
 	count := 1
 	for c := col - 1; c >= 0 && game.Board[row][c] == player; c-- {
 		count++
@@ -377,7 +415,6 @@ func checkWinForPosition(row, col, player int) bool {
 		return true
 	}
 
-	// Check vertical
 	count = 1
 	for r := row - 1; r >= 0 && game.Board[r][col] == player; r-- {
 		count++
@@ -389,7 +426,6 @@ func checkWinForPosition(row, col, player int) bool {
 		return true
 	}
 
-	// Check diagonal (top-left to bottom-right)
 	count = 1
 	for r, c := row-1, col-1; r >= 0 && c >= 0 && game.Board[r][c] == player; r, c = r-1, c-1 {
 		count++
@@ -401,7 +437,6 @@ func checkWinForPosition(row, col, player int) bool {
 		return true
 	}
 
-	// Check diagonal (top-right to bottom-left)
 	count = 1
 	for r, c := row-1, col+1; r >= 0 && c < game.Cols && game.Board[r][c] == player; r, c = r-1, c+1 {
 		count++
@@ -414,4 +449,55 @@ func checkWinForPosition(row, col, player int) bool {
 	}
 
 	return false
+}
+
+func getAIMove() int {
+	for col := 0; col < game.Cols; col++ {
+		row := simulatePlacePiece(col, 2)
+		if row == -1 {
+			continue
+		}
+		game.Board[row][col] = 2
+		if checkWinForPosition(row, col, 2) {
+			game.Board[row][col] = 0
+			return col
+		}
+		game.Board[row][col] = 0
+	}
+
+	for col := 0; col < game.Cols; col++ {
+		row := simulatePlacePiece(col, 1)
+		if row == -1 {
+			continue
+		}
+		game.Board[row][col] = 1
+		if checkWinForPosition(row, col, 1) {
+			game.Board[row][col] = 0
+			return col
+		}
+		game.Board[row][col] = 0
+	}
+
+	centerCols := []int{game.Cols / 2, game.Cols/2 - 1, game.Cols/2 + 1}
+	for _, col := range centerCols {
+		if col >= 0 && col < game.Cols {
+			row := simulatePlacePiece(col, 2)
+			if row != -1 {
+				return col
+			}
+		}
+	}
+
+	validCols := []int{}
+	for col := 0; col < game.Cols; col++ {
+		if simulatePlacePiece(col, 2) != -1 {
+			validCols = append(validCols, col)
+		}
+	}
+
+	if len(validCols) > 0 {
+		return validCols[rand.Intn(len(validCols))]
+	}
+
+	return -1
 }

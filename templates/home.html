@@ -21,6 +21,84 @@
             padding: 20px;
         }
 
+        .welcome-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .welcome-content {
+            text-align: center;
+            color: white;
+            max-width: 600px;
+            padding: 40px;
+        }
+
+        .welcome-title {
+            font-size: 72px;
+            font-weight: 900;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 40px rgba(102, 126, 234, 0.5);
+        }
+
+        .welcome-subtitle {
+            font-size: 24px;
+            margin-bottom: 50px;
+            color: #cbd5e1;
+        }
+
+        .mode-selection {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .mode-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            width: 250px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+        }
+
+        .mode-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.4);
+            border-color: #667eea;
+        }
+
+        .mode-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .mode-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+
+        .mode-description {
+            font-size: 14px;
+            color: #64748b;
+        }
+
         .container {
             background: white;
             border-radius: 24px;
@@ -29,6 +107,16 @@
             max-width: 500px;
             width: 100%;
             animation: slideUp 0.5s ease-out;
+            display: none;
+        }
+
+        .container.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         @keyframes slideUp {
@@ -88,7 +176,6 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        /* Added color picker styles */
         .color-picker-group {
             display: flex;
             gap: 12px;
@@ -157,21 +244,49 @@
             text-align: center;
             margin-bottom: 24px;
         }
+
+        .player2-group {
+            display: block;
+        }
+
+        .player2-group.hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="welcome-overlay" id="welcomeOverlay">
+        <div class="welcome-content">
+            <div class="welcome-title">POWER 4</div>
+            <div class="welcome-subtitle">Choisissez votre mode de jeu</div>
+            <div class="mode-selection">
+                <div class="mode-card" onclick="selectMode('pvp')">
+                    <div class="mode-icon">👥</div>
+                    <div class="mode-title">Joueur vs Joueur</div>
+                    <div class="mode-description">Affrontez un ami sur le meme ordinateur</div>
+                </div>
+                <div class="mode-card" onclick="selectMode('ai')">
+                    <div class="mode-icon">🤖</div>
+                    <div class="mode-title">Joueur vs IA</div>
+                    <div class="mode-description">Defiez l'intelligence artificielle</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="setupContainer">
         <div class="emoji">🎮</div>
         <h1>Power 4</h1>
         <p class="subtitle">Connectez 4 jetons pour gagner !</p>
         
         <form action="/start" method="POST">
+            <input type="hidden" id="gamemode" name="gamemode" value="pvp">
+            
             <div class="form-group">
                 <label for="player1">Nom du Joueur 1</label>
                 <input type="text" id="player1" name="player1" placeholder="Entrez le nom..." required>
             </div>
             
-            <!-- Added color picker for player 1 -->
             <div class="form-group">
                 <label for="player1color">Couleur du Joueur 1</label>
                 <div class="color-picker-group">
@@ -181,38 +296,54 @@
                 </div>
             </div>
             
-            <div class="form-group">
-                <label for="player2">Nom du Joueur 2</label>
-                <input type="text" id="player2" name="player2" placeholder="Entrez le nom..." required>
-            </div>
-            
-            <!-- Added color picker for player 2 -->
-            <div class="form-group">
-                <label for="player2color">Couleur du Joueur 2</label>
-                <div class="color-picker-group">
-                    <input type="text" id="player2color" name="player2color" value="#fbbf24" readonly>
-                    <label for="player2colorpicker" class="color-preview" id="player2preview" style="background: #fbbf24;"></label>
-                    <input type="color" id="player2colorpicker" value="#fbbf24" onchange="updateColor(2, this.value)">
+            <div class="player2-group" id="player2Group">
+                <div class="form-group">
+                    <label for="player2">Nom du Joueur 2</label>
+                    <input type="text" id="player2" name="player2" placeholder="Entrez le nom...">
+                </div>
+                
+                <div class="form-group">
+                    <label for="player2color">Couleur du Joueur 2</label>
+                    <div class="color-picker-group">
+                        <input type="text" id="player2color" name="player2color" value="#fbbf24" readonly>
+                        <label for="player2colorpicker" class="color-preview" id="player2preview" style="background: #fbbf24;"></label>
+                        <input type="color" id="player2colorpicker" value="#fbbf24" onchange="updateColor(2, this.value)">
+                    </div>
                 </div>
             </div>
             
             <div class="form-group">
-                <label for="difficulty">⚡ Niveau de difficulté</label>
+                <label for="difficulty">Niveau de difficulte</label>
                 <select id="difficulty" name="difficulty" onchange="updateDifficultyInfo()">
                     <option value="easy">Facile</option>
                     <option value="normal" selected>Normal</option>
                     <option value="hard">Difficile</option>
                 </select>
                 <div class="difficulty-info" id="difficultyInfo">
-                    Grille 6x9 avec 5 cases bloquées
+                    Grille 6x9 avec 5 cases bloquees
                 </div>
             </div>
             
-            <button type="submit">Commencer la partie 🚀</button>
+            <button type="submit">Commencer la partie</button>
         </form>
     </div>
 
     <script>
+        function selectMode(mode) {
+            document.getElementById('gamemode').value = mode;
+            document.getElementById('welcomeOverlay').style.display = 'none';
+            document.getElementById('setupContainer').classList.add('active');
+            
+            const player2Group = document.getElementById('player2Group');
+            if (mode === 'ai') {
+                player2Group.classList.add('hidden');
+                document.getElementById('player2').removeAttribute('required');
+            } else {
+                player2Group.classList.remove('hidden');
+                document.getElementById('player2').setAttribute('required', 'required');
+            }
+        }
+
         function updateColor(player, color) {
             document.getElementById('player' + player + 'color').value = color;
             document.getElementById('player' + player + 'preview').style.background = color;
@@ -224,13 +355,13 @@
             
             switch(difficulty) {
                 case 'easy':
-                    info.textContent = 'Grille 6x7 avec 3 cases bloquées';
+                    info.textContent = 'Grille 6x7 avec 3 cases bloquees';
                     break;
                 case 'normal':
-                    info.textContent = 'Grille 6x9 avec 5 cases bloquées';
+                    info.textContent = 'Grille 6x9 avec 5 cases bloquees';
                     break;
                 case 'hard':
-                    info.textContent = 'Grille 7x8 avec 7 cases bloquées';
+                    info.textContent = 'Grille 7x8 avec 7 cases bloquees';
                     break;
             }
         }

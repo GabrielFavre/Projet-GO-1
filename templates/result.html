@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Power 4 - Résultat</title>
+    <title>Power 4 - Resultat</title>
     <style>
         * {
             margin: 0;
@@ -192,7 +192,7 @@
         {{if eq .Winner 0}}
             <div class="emoji">🤝</div>
             <h1>Match Nul !</h1>
-            <p class="winner-name">Égalité parfaite</p>
+            <p class="winner-name">Egalite parfaite</p>
         {{else}}
             <div class="emoji">{{if eq .Winner 1}}🔴{{else}}🟡{{end}}</div>
             <h1>Victoire !</h1>
@@ -203,19 +203,19 @@
 
         <div class="game-stats">
             <div class="stat-row">
-                <span class="stat-label">🔴 {{.Player1Name}}</span>
-                <span class="stat-value">{{if eq .Winner 1}}Gagnant{{else if eq .Winner 0}}Égalité{{else}}Perdant{{end}}</span>
+                <span class="stat-label">{{.Player1Name}}</span>
+                <span class="stat-value">{{if eq .Winner 1}}Gagnant{{else if eq .Winner 0}}Egalite{{else}}Perdant{{end}}</span>
             </div>
             <div class="stat-row">
-                <span class="stat-label">🟡 {{.Player2Name}}</span>
-                <span class="stat-value">{{if eq .Winner 2}}Gagnant{{else if eq .Winner 0}}Égalité{{else}}Perdant{{end}}</span>
+                <span class="stat-label">{{.Player2Name}}</span>
+                <span class="stat-value">{{if eq .Winner 2}}Gagnant{{else if eq .Winner 0}}Egalite{{else}}Perdant{{end}}</span>
             </div>
             <div class="stat-row">
                 <span class="stat-label">Nombre de tours</span>
                 <span class="stat-value">{{.TurnCount}}</span>
             </div>
             <div class="stat-row">
-                <span class="stat-label">Difficulté</span>
+                <span class="stat-label">Difficulte</span>
                 <span class="stat-value">{{.Difficulty}}</span>
             </div>
         </div>
@@ -232,10 +232,10 @@
 
         <div class="buttons">
             <form action="/rematch" method="POST" style="display: inline;">
-                <button type="submit" class="btn-primary">🔄 Revanche</button>
+                <button type="submit" class="btn-primary">Revanche</button>
             </form>
             <form action="/" method="GET" style="display: inline;">
-                <button type="submit" class="btn-secondary">🏠 Accueil</button>
+                <button type="submit" class="btn-secondary">Accueil</button>
             </form>
         </div>
     </div>
