@@ -12,8 +12,8 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #312e2b;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -27,7 +27,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.95);
+            background: #312e2b;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -38,7 +38,7 @@
         .welcome-content {
             text-align: center;
             color: white;
-            max-width: 600px;
+            max-width: 900px;
             padding: 40px;
         }
 
@@ -46,17 +46,14 @@
             font-size: 72px;
             font-weight: 900;
             margin-bottom: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: 0 0 40px rgba(102, 126, 234, 0.5);
+            color: #81b64c;
+            letter-spacing: -2px;
         }
 
         .welcome-subtitle {
             font-size: 24px;
-            margin-bottom: 50px;
-            color: #cbd5e1;
+            margin-bottom: 60px;
+            color: #b3b3b3;
         }
 
         .mode-selection {
@@ -67,10 +64,10 @@
         }
 
         .mode-card {
-            background: white;
-            border-radius: 20px;
+            background: #262421;
+            border-radius: 12px;
             padding: 40px 30px;
-            width: 250px;
+            width: 280px;
             cursor: pointer;
             transition: all 0.3s;
             border: 3px solid transparent;
@@ -78,8 +75,9 @@
 
         .mode-card:hover {
             transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.4);
-            border-color: #667eea;
+            box-shadow: 0 20px 40px rgba(129, 182, 76, 0.3);
+            border-color: #81b64c;
+            background: #2d2a27;
         }
 
         .mode-icon {
@@ -90,20 +88,20 @@
         .mode-title {
             font-size: 24px;
             font-weight: 700;
-            color: #1e293b;
+            color: #ffffff;
             margin-bottom: 10px;
         }
 
         .mode-description {
             font-size: 14px;
-            color: #64748b;
+            color: #b3b3b3;
         }
 
         .container {
-            background: white;
-            border-radius: 24px;
+            background: #262421;
+            border-radius: 12px;
             padding: 48px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             max-width: 500px;
             width: 100%;
             animation: slideUp 0.5s ease-out;
@@ -135,15 +133,13 @@
             font-weight: 800;
             text-align: center;
             margin-bottom: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #81b64c;
+            letter-spacing: -1px;
         }
 
         .subtitle {
             text-align: center;
-            color: #64748b;
+            color: #b3b3b3;
             margin-bottom: 40px;
             font-size: 16px;
         }
@@ -156,24 +152,26 @@
             display: block;
             margin-bottom: 8px;
             font-weight: 600;
-            color: #334155;
+            color: #ffffff;
             font-size: 14px;
         }
 
         input, select {
             width: 100%;
             padding: 14px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
+            border: 2px solid #3d3a36;
+            border-radius: 6px;
             font-size: 16px;
             transition: all 0.2s;
             font-family: inherit;
+            background: #312e2b;
+            color: #ffffff;
         }
 
         input:focus, select:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #81b64c;
+            box-shadow: 0 0 0 3px rgba(129, 182, 76, 0.1);
         }
 
         .color-picker-group {
@@ -190,14 +188,14 @@
             width: 50px;
             height: 50px;
             border-radius: 50%;
-            border: 3px solid #e2e8f0;
+            border: 3px solid #3d3a36;
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .color-preview:hover {
             transform: scale(1.1);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         }
 
         input[type="color"] {
@@ -210,19 +208,19 @@
         .difficulty-info {
             margin-top: 8px;
             padding: 12px;
-            background: #f1f5f9;
-            border-radius: 8px;
+            background: #312e2b;
+            border-radius: 6px;
             font-size: 13px;
-            color: #64748b;
+            color: #b3b3b3;
         }
 
         button {
             width: 100%;
             padding: 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #81b64c;
             color: white;
             border: none;
-            border-radius: 12px;
+            border-radius: 6px;
             font-size: 18px;
             font-weight: 700;
             cursor: pointer;
@@ -231,8 +229,9 @@
         }
 
         button:hover {
+            background: #6fa03a;
             transform: translateY(-2px);
-            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 12px 24px rgba(129, 182, 76, 0.3);
         }
 
         button:active {
@@ -252,12 +251,17 @@
         .player2-group.hidden {
             display: none;
         }
+
+        select option {
+            background: #312e2b;
+            color: #ffffff;
+        }
     </style>
 </head>
 <body>
     <div class="welcome-overlay" id="welcomeOverlay">
         <div class="welcome-content">
-            <div class="welcome-title">POWER 4</div>
+            <div class="welcome-title">POWER4.COM</div>
             <div class="welcome-subtitle">Choisissez votre mode de jeu</div>
             <div class="mode-selection">
                 <div class="mode-card" onclick="selectMode('pvp')">
@@ -276,8 +280,8 @@
 
     <div class="container" id="setupContainer">
         <div class="emoji">🎮</div>
-        <h1>Power 4</h1>
-        <p class="subtitle">Connectez 4 jetons pour gagner !</p>
+        <h1>POWER 4</h1>
+        <p class="subtitle">Connectez 4 jetons pour gagner</p>
         
         <form action="/start" method="POST">
             <input type="hidden" id="gamemode" name="gamemode" value="pvp">

@@ -49,7 +49,7 @@ func main() {
 		"add": func(a, b int) int {
 			return a + b
 		},
-		"eq": func(a, b int) bool {
+		"eq": func(a, b interface{}) bool {
 			return a == b
 		},
 	}
@@ -123,15 +123,20 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	gameMutex.Lock()
+	defer gameMutex.Unlock()
+
+	if game == nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
 	colStr := r.FormValue("column")
 	col, err := strconv.Atoi(colStr)
 	if err != nil || col < 0 || col >= game.Cols {
 		templates.ExecuteTemplate(w, "game.html", game)
 		return
 	}
-
-	gameMutex.Lock()
-	defer gameMutex.Unlock()
 
 	if game.GameOver {
 		templates.ExecuteTemplate(w, "game.html", game)
@@ -153,8 +158,8 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 	if checkWin(row, col) {
 		game.Winner = game.CurrentPlayer
 		game.GameOver = true
-		game.FinishHimMode = false
-		templates.ExecuteTemplate(w, "result.html", game)
+		game.FinishHimMode = true
+		templates.ExecuteTemplate(w, "game.html", game)
 		return
 	}
 
@@ -162,7 +167,7 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		game.Winner = 0
 		game.GameOver = true
 		game.FinishHimMode = false
-		templates.ExecuteTemplate(w, "result.html", game)
+		templates.ExecuteTemplate(w, "game.html", game)
 		return
 	}
 
@@ -172,8 +177,6 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		game.CurrentPlayer = 1
 	}
 
-	game.FinishHimMode = checkFinishHim()
-
 	templates.ExecuteTemplate(w, "game.html", game)
 }
 
@@ -181,8 +184,12 @@ func aiMoveHandler(w http.ResponseWriter, r *http.Request) {
 	gameMutex.Lock()
 	defer gameMutex.Unlock()
 
-	if game.GameOver || game.GameMode != "ai" || game.CurrentPlayer != 2 {
-		templates.ExecuteTemplate(w, "game.html", game)
+	if game == nil || game.GameOver || game.GameMode != "ai" || game.CurrentPlayer != 2 {
+		if game != nil {
+			templates.ExecuteTemplate(w, "game.html", game)
+		} else {
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+		}
 		return
 	}
 
@@ -207,8 +214,8 @@ func aiMoveHandler(w http.ResponseWriter, r *http.Request) {
 	if checkWin(row, col) {
 		game.Winner = game.CurrentPlayer
 		game.GameOver = true
-		game.FinishHimMode = false
-		templates.ExecuteTemplate(w, "result.html", game)
+		game.FinishHimMode = true
+		templates.ExecuteTemplate(w, "game.html", game)
 		return
 	}
 
@@ -216,12 +223,11 @@ func aiMoveHandler(w http.ResponseWriter, r *http.Request) {
 		game.Winner = 0
 		game.GameOver = true
 		game.FinishHimMode = false
-		templates.ExecuteTemplate(w, "result.html", game)
+		templates.ExecuteTemplate(w, "game.html", game)
 		return
 	}
 
 	game.CurrentPlayer = 1
-	game.FinishHimMode = checkFinishHim()
 
 	templates.ExecuteTemplate(w, "game.html", game)
 }
@@ -233,7 +239,11 @@ func rematchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	gameMutex.Unlock()
 
-	templates.ExecuteTemplate(w, "game.html", game)
+	if game != nil {
+		templates.ExecuteTemplate(w, "game.html", game)
+	} else {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
 }
 
 func initGame(player1, player2, difficulty, player1Color, player2Color, gameMode string) *GameState {
@@ -364,26 +374,6 @@ func checkDraw() bool {
 		}
 	}
 	return true
-}
-
-func checkFinishHim() bool {
-	opponent := 3 - game.CurrentPlayer
-
-	for col := 0; col < game.Cols; col++ {
-		row := simulatePlacePiece(col, opponent)
-		if row == -1 {
-			continue
-		}
-
-		game.Board[row][col] = opponent
-		wouldWin := checkWinForPosition(row, col, opponent)
-		game.Board[row][col] = 0
-
-		if wouldWin {
-			return true
-		}
-	}
-	return false
 }
 
 func simulatePlacePiece(col int, player int) int {
