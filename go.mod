@@ -1,3 +1,3 @@
-module projet-go-1
+module power4
 
 go 1.25.0

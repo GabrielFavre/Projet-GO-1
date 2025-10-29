@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power 4 - Partie en cours</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #312e2b;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 0 8px;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 800;
+            color: #81b64c;
+            letter-spacing: -1px;
+        }
+
+        .gravity-badge {
+            background: {{if .GravityInverse}}#dc2626{{else}}#81b64c{{end}};
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .game-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .sidebar {
+            background: #262421;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .player-card {
+            background: #312e2b;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .player-card.active {
+            border-color: #81b64c;
+            background: #3d3a36;
+        }
+
+        .player-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .player-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .player-info {
+            flex: 1;
+        }
+
+        .player-name {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .player-status {
+            color: #81b64c;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .player-card.inactive .player-status {
+            color: #6b6b6b;
+        }
+
+        .stats-section {
+            margin-top: 24px;
+        }
+
+        .stats-title {
+            color: #b3b3b3;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #3d3a36;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #b3b3b3;
+            font-size: 14px;
+        }
+
+        .stat-value {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .board-container {
+            background: #262421;
+            border-radius: 8px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .board-wrapper {
+            position: relative;
+        }
+
+        .board {
+            display: inline-grid;
+            gap: 8px;
+            padding: 20px;
+            background: {{if .GravityInverse}}#dc2626{{else}}#4b7399{{end}};
+            border-radius: 12px;
+            grid-template-columns: repeat({{.Cols}}, 1fr);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            transition: background 0.5s ease;
+        }
+
+        .cell {
+            width: 56px;
+            height: 56px;
+            background: #1a1a1a;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .cell:hover:not(.player1):not(.player2):not(.blocked) {
+            background: #2a2a2a;
+            transform: scale(1.05);
+        }
+
+        .cell.player1 {
+            background: {{.Player1Color}};
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            animation: dropIn 0.4s ease-out;
+            cursor: default;
+        }
+
+        .cell.player2 {
+            background: {{.Player2Color}};
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            animation: dropIn 0.4s ease-out;
+            cursor: default;
+        }
+
+        .cell.blocked {
+            background: #3d3a36;
+            cursor: not-allowed;
+        }
+
+        .cell.blocked::before {
+            content: '✕';
+            color: #6b6b6b;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        @keyframes dropIn {
+            from {
+                transform: translateY({{if .GravityInverse}}100px{{else}}-100px{{end}}) scale(0.5);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .finish-him-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .finish-him-text {
+            font-size: 120px;
+            font-weight: 900;
+            color: #ff0000;
+            text-shadow: 0 0 30px #ff0000, 0 0 60px #ff0000;
+            animation: finishHimPulse 1s ease-in-out 3;
+            letter-spacing: 10px;
+            margin-bottom: 40px;
+        }
+
+        .winner-info {
+            color: white;
+            font-size: 32px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes finishHimPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #81b64c;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #6fa03a;
+        }
+
+        .btn-secondary {
+            background: #3d3a36;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4a4744;
+        }
+
+        @media (max-width: 1200px) {
+            .game-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: none;
+            }
+
+            .cell {
+                width: 48px;
+                height: 48px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .cell {
+                width: 36px;
+                height: 36px;
+            }
+
+            .finish-him-text {
+                font-size: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    {{if and .FinishHimMode .GameOver}}
+    <div class="finish-him-overlay" id="finishHimOverlay">
+        <div class="finish-him-text">FINISH HIM!</div>
+        <div class="winner-info">
+            {{if eq .Winner 1}}{{.Player1Name}}{{else if eq .Winner 2}}{{.Player2Name}}{{end}} remporte la partie!
+        </div>
+    </div>
+    {{end}}
+
+    <audio id="bgMusic" loop>
+        <source src="https://cdn.pixabay.com/audio/2022/03/10/audio_4a468b9c8c.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="finishHimSound">
+        <source src="https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3" type="audio/mpeg">
+    </audio>
+
+    <div class="container">
+        <div class="header">
+            <div class="logo">POWER4.COM</div>
+            <div class="gravity-badge">
+                {{if .GravityInverse}}GRAVITE INVERSEE{{else}}GRAVITE NORMALE{{end}}
+            </div>
+        </div>
+
+        <div class="game-layout">
+            <div class="sidebar">
+                <div class="player-card {{if eq .CurrentPlayer 1}}active{{else}}inactive{{end}}">
+                    <div class="player-header">
+                        <div class="player-avatar" style="background: {{.Player1Color}};">
+                            🔴
+                        </div>
+                        <div class="player-info">
+                            <div class="player-name">{{.Player1Name}}</div>
+                            <div class="player-status">{{if eq .CurrentPlayer 1}}A jouer{{else}}En attente{{end}}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="player-card {{if eq .CurrentPlayer 2}}active{{else}}inactive{{end}}">
+                    <div class="player-header">
+                        <div class="player-avatar" style="background: {{.Player2Color}};">
+                            🟡
+                        </div>
+                        <div class="player-info">
+                            <div class="player-name">{{.Player2Name}}</div>
+                            <div class="player-status">{{if eq .CurrentPlayer 2}}A jouer{{else}}En attente{{end}}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-section">
+                    <div class="stats-title">Statistiques</div>
+                    <div class="stat-item">
+                        <span class="stat-label">Tours joues</span>
+                        <span class="stat-value">{{.TurnCount}}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Difficulte</span>
+                        <span class="stat-value">{{.Difficulty}}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Grille</span>
+                        <span class="stat-value">{{.Rows}}x{{.Cols}}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Mode</span>
+                        <span class="stat-value">{{if eq .GameMode "ai"}}vs IA{{else}}PvP{{end}}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="board-container">
+                <div class="board-wrapper">
+                    <div class="board">
+                        {{range $rowIndex, $row := .Board}}
+                            {{range $colIndex, $cell := $row}}
+                                {{if eq $cell 0}}
+                                    <div class="cell" onclick="playColumn({{$colIndex}})"></div>
+                                {{else if eq $cell 1}}
+                                    <div class="cell player1"></div>
+                                {{else if eq $cell 2}}
+                                    <div class="cell player2"></div>
+                                {{else}}
+                                    <div class="cell blocked"></div>
+                                {{end}}
+                            {{end}}
+                        {{end}}
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <form action="/rematch" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-primary">Nouvelle partie</button>
+                    </form>
+                    <form action="/" method="GET" style="display: inline;">
+                        <button type="submit" class="btn btn-secondary">Accueil</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="stats-section">
+                    <div class="stats-title">Informations</div>
+                    <div class="stat-item">
+                        <span class="stat-label">Objectif</span>
+                        <span class="stat-value">4 alignés</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Cases bloquees</span>
+                        <span class="stat-value">{{if eq .Difficulty "easy"}}3{{else if eq .Difficulty "hard"}}7{{else}}5{{end}}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Gravite inverse</span>
+                        <span class="stat-value">Tous les 5 tours</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form id="playForm" method="POST" action="/play" style="display: none;">
+        <input type="hidden" id="columnInput" name="column" value="">
+    </form>
+
+    <script>
+        const bgMusic = document.getElementById('bgMusic');
+        const finishHimSound = document.getElementById('finishHimSound');
+        const finishHimMode = {{.FinishHimMode}};
+        const gameOver = {{.GameOver}};
+        const gameMode = "{{.GameMode}}";
+        const currentPlayer = {{.CurrentPlayer}};
+
+        function playColumn(col) {
+            if (!gameOver) {
+                document.getElementById('columnInput').value = col;
+                document.getElementById('playForm').submit();
+            }
+        }
+
+        document.addEventListener('click', function() {
+            if (bgMusic.paused) {
+                bgMusic.volume = 0.2;
+                bgMusic.play().catch(e => console.log('Audio play failed:', e));
+            }
+        }, { once: true });
+
+        if (finishHimMode && gameOver) {
+            finishHimSound.volume = 0.7;
+            finishHimSound.play().catch(e => console.log('Finish Him sound failed:', e));
+            
+            setTimeout(() => {
+                window.location.href = '/rematch';
+            }, 4000);
+        }
+
+        if (gameMode === "ai" && currentPlayer === 2 && !gameOver) {
+            setTimeout(() => {
+                window.location.href = '/ai-move';
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
