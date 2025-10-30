@@ -491,3 +491,4 @@ func getAIMove() int {
 
 	return -1
 }
+dbknfj$qsfbjsknfbnksdfbnkpxnkpcbpnkxsfpnkmb
